@@ -1,0 +1,76 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: guessit
+  annotations:
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:024550159229:certificate/ef409432-df13-4bc0-a021-eb82516e555b
+    alb.ingress.kubernetes.io/group.name: mosaic
+    alb.ingress.kubernetes.io/scheme: internal
+    kubernetes.io/ingress.class: alb
+  labels:
+    app: guessit
+spec:
+  tls:
+    - hosts:
+        - guessit.plx-mosaic.com
+      secretName: guessit.plx-mosaic.com
+  rules:
+    - host: guessit.plx-mosaic.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: guessit
+                port:
+                  number: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: guessit.plx-mosaic.com
+    service.beta.kubernetes.io/do-loadbalancer-hostname: guessit.plx-mosaic.com
+  labels:
+    app: guessit
+  name: guessit
+spec:
+  type: ClusterIP
+  ports:
+    - name: guessit
+      port: 5000
+      protocol: TCP
+  selector:
+    app: guessit
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: guessit
+  labels:
+    app: guessit
+spec:
+  replicas: 2
+  serviceName: guessit
+  selector:
+    matchLabels:
+      app: guessit
+  template:
+    metadata:
+      labels:
+        app: guessit
+    spec:
+      containers:
+        - name: guessit
+          command:
+            - "/usr/local/bin/guessit-rest"
+          args:
+            - "-p"
+            - "5000"
+          image: guessit/guessit-rest:latest
+          resources:
+            requests:
+              memory: "16Mi"
+          ports:
+            - containerPort: 5000
