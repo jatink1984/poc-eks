@@ -10,8 +10,12 @@ terraform {
     kubernetes = "~> 1.11"
     helm       = "~> 1.3"
     kubectl = {
-      source = "gavinbunney/kubectl"
+      source  = "gavinbunney/kubectl"
       version = "~> 1.7"
+    }
+    kustomization = {
+      source  = "kbst/kustomize"
+      version = "0.2.0-beta.3"
     }
   }
 }

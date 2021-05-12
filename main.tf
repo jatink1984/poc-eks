@@ -1,15 +1,20 @@
-terraform {
-  backend "s3" {
-    bucket  = "proplogix-terraform"
-    encrypt = true
-    key     = "proplogix-eks.tfstate"
-    profile = "proplogix"
-    region  = "us-east-1"
-  }
-}
-
 provider "aws" {
   region = var.region
+}
+
+provider "kustomization" {}
+
+data "kustomization" "ebs" {
+  provider = kustomization
+  path     = "github.com/kubernetes-sigs/aws-efs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.0"
+}
+
+resource "kustomization_resource" "ebs" {
+  provider = kustomization
+
+  for_each = data.kustomization.ebs.ids
+
+  manifest = data.kustomization.ebs.manifests[each.value]
 }
 
 data "aws_eks_cluster" "cluster" {
@@ -137,6 +142,18 @@ resource "kubectl_manifest" "dashboard" {
   force_new  = true
 }
 
+resource "kubectl_manifest" "storage-class" {
+  depends_on = [module.eks, kustomization_resource.ebs]
+  yaml_body  = file("storageclass.yaml")
+  force_new  = true
+}
+
+resource "kubectl_manifest" "claim" {
+  depends_on = [module.eks, kubectl_manifest.storage-class]
+  yaml_body  = file("claim.yaml")
+  force_new  = true
+}
+
 resource "kubectl_manifest" "dashboard-accounts" {
   depends_on = [module.eks, kubectl_manifest.dashboard]
   yaml_body  = file("cluster-admin.yaml")
@@ -165,7 +182,7 @@ resource "helm_release" "ingress" {
   }
 
   set {
-    name = "serviceAccount.name"
+    name  = "serviceAccount.name"
     value = "aws-load-balancer-controller"
   }
 }
