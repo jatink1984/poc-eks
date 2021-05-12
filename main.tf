@@ -132,16 +132,6 @@ provider "kubectl" {
   }
 }
 
-data "http" "dashboard" {
-  url = "https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0/aio/deploy/recommended.yaml"
-}
-
-resource "kubectl_manifest" "dashboard" {
-  depends_on = [module.eks]
-  yaml_body  = data.http.dashboard.body
-  force_new  = true
-}
-
 resource "kubectl_manifest" "storage-class" {
   depends_on = [module.eks, kustomization_resource.ebs]
   yaml_body  = file("storageclass.yaml")
@@ -151,12 +141,6 @@ resource "kubectl_manifest" "storage-class" {
 resource "kubectl_manifest" "claim" {
   depends_on = [module.eks, kubectl_manifest.storage-class]
   yaml_body  = file("claim.yaml")
-  force_new  = true
-}
-
-resource "kubectl_manifest" "dashboard-accounts" {
-  depends_on = [module.eks, kubectl_manifest.dashboard]
-  yaml_body  = file("cluster-admin.yaml")
   force_new  = true
 }
 
