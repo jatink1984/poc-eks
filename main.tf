@@ -6,7 +6,7 @@ provider "kustomization" {}
 
 data "kustomization" "ebs" {
   provider = kustomization
-  path     = "github.com/kubernetes-sigs/aws-efs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.0"
+  path     = "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/?ref=master"
 }
 
 resource "kustomization_resource" "ebs" {
