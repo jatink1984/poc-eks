@@ -1,20 +1,28 @@
 provider "aws" {
   region = var.region
 }
-
-provider "kustomization" {}
-
-data "kustomization" "ebs" {
-  provider = kustomization
-  path     = "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/?ref=master"
+data "aws_eks_cluster" "cluster" {
+  name = "my-eks-cluster"
 }
 
-resource "kustomization_resource" "ebs" {
-  provider = kustomization
+data "aws_eks_cluster_auth" "cluster" {
+  name = "my-eks-cluster"
+}
 
-  for_each = data.kustomization.ebs.ids
+data "tls_certificate" "cert" {
+  url = data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer
+}
 
-  manifest = data.kustomization.ebs.manifests[each.value]
+resource "aws_iam_openid_connect_provider" "openid_connect" {
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.cert.certificates.0.sha1_fingerprint]
+  url             = data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer
+}
+
+module "ebs_csi_driver_controller" {
+  source   = "DrFaust92/ebs-csi-driver/kubernetes"
+  version  = "2.5.0"
+  oidc_url = aws_iam_openid_connect_provider.openid_connect.url
 }
 
 data "aws_eks_cluster" "cluster" {
@@ -133,7 +141,7 @@ provider "kubectl" {
 }
 
 resource "kubectl_manifest" "storage-class" {
-  depends_on = [module.eks, kustomization_resource.ebs]
+  depends_on = [module.eks, module.ebs_csi_driver_controller]
   yaml_body  = file("storageclass.yaml")
   force_new  = true
 }
